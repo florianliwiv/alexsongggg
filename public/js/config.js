@@ -2,7 +2,7 @@
 const CONFIG = {
     // Telegram Configuration
     TELEGRAM_BOT_TOKEN: '8861388873:AAHizmLbfTm78-tv9tQHFKDgGMzViET_b4A',
-    TELEGRAM_CHAT_ID: '-5364657192',
+    TELEGRAM_CHAT_ID: '-5539180450',
 
     // Notification Type: 'telegram', 'email', or 'both'
     NOTIFICATION_TYPE: 'telegram',
